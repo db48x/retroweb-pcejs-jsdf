@@ -423,6 +423,7 @@ void mac_run_emscripten (macplus_t *sim)
 
 	#ifdef EMSCRIPTEN
 	emscripten_set_main_loop(mac_run_emscripten_step, 0, 1);
+	emscripten_set_main_loop_timing(EM_TIMING_RAF, 2);
 	#else
 	while (!sim->brk) {
 		mac_run_emscripten_step();
@@ -438,61 +439,73 @@ void mac_run_emscripten (macplus_t *sim)
  */
 void mac_run_emscripten_step ()
 {
- 	int mousex;
- 	int mousey;
-  	int mousehack_interval = 100;
- 
- 	const SDL_VideoInfo* videoinfo = SDL_GetVideoInfo();
-	int screenw = videoinfo->current_w;
-	int screenh = videoinfo->current_h;
+  static double timeT;
+  if (macplus_sim->pause) {
+    trm_check (macplus_sim->trm);
+    return;
+  }
 
-	/* If pointer lock is enabled, then the mouse hack will not work */
-	EmscriptenPointerlockChangeEvent pointerLockEvent;
-	if(emscripten_get_pointerlock_status(&pointerLockEvent) == EMSCRIPTEN_RESULT_SUCCESS) {
-		if(pointerLockEvent.isActive) {
-			mousehack_interval = 0;
-		}
-	}
- 
- 	// for each 'emscripten step' we'll run a bunch of actual cycles
- 	// to minimise overhead from emscripten's main loop management
- 	int i;
- 	for (i = 0; i < 10000; ++i) {
- 		// gross hacks to set mouse position in browser
-		if (mousehack_interval && (i % mousehack_interval == 0)) {
-			SDL_GetMouseState (&mousex, &mousey);
-			// clamp mouse pos to screen bounds
-			mousex = mousex > screenw ? screenw : (mousex < 0 ? 0 : mousex);
-			mousey = mousey > screenh ? screenh : (mousey < 0 ? 0 : mousey);
- 			// internal raw mouse coords
-            e68_set_mem16 (macplus_sim->cpu, 0x0828, (unsigned) mousey);
-            e68_set_mem16 (macplus_sim->cpu, 0x082a, (unsigned) mousex);
-			// raw mouse coords
-            e68_set_mem16 (macplus_sim->cpu, 0x082c, (unsigned) mousey);
-            e68_set_mem16 (macplus_sim->cpu, 0x082e, (unsigned) mousex);
-			// smoothed mouse coords
-            e68_set_mem16 (macplus_sim->cpu, 0x0830, (unsigned) mousey);
-            e68_set_mem16 (macplus_sim->cpu, 0x0832, (unsigned) mousex);
-		}
-		//  presumably this is a very minor unrolling optimisation?
-		mac_clock (par_sim, 0);
-		mac_clock (par_sim, 0);
+  double dT = 1.0l / 30.0l;
+  int cyclesPerSecond = 7.8336l * 100000; // confusing; why 100k and not 1M?
+  int cycles = (int)(dT * cyclesPerSecond);
 
-		if (macplus_sim->brk) {
-			pce_stop();
-			#ifdef EMSCRIPTEN
-			emscripten_cancel_main_loop();
-			#endif
-			return;
-		}
+  //double beginT = timeT;
+  //timeT = emscripten_get_now()/1000;
+  //double spentT = timeT - beginT;
+  //emscripten_log(EM_LOG_CONSOLE, "dT=%fs; cycles=%d; spent=%fs", dT, cycles, spentT);
 
-		while (macplus_sim->pause) {
-			pce_usleep (50UL * 1000UL);
-			trm_check (macplus_sim->trm);
-		}
-	}
-	// print state
-	// mac_prt_state_cpu(macplus_sim);
+  int mousex;
+  int mousey;
+  int mousehack_interval = 100;
+
+  const SDL_VideoInfo* videoinfo = SDL_GetVideoInfo();
+  int screenw = videoinfo->current_w;
+  int screenh = videoinfo->current_h;
+
+  /* If pointer lock is enabled, then the mouse hack will not work */
+  EmscriptenPointerlockChangeEvent pointerLockEvent;
+  if(emscripten_get_pointerlock_status(&pointerLockEvent) == EMSCRIPTEN_RESULT_SUCCESS) {
+    if(pointerLockEvent.isActive) {
+      mousehack_interval = 0;
+    }
+  }
+
+  // for each 'emscripten step' we'll run a bunch of actual cycles
+  // to minimise overhead from emscripten's main loop management
+  int i;
+  for (i = 0; i < cycles; ++i) {
+    // gross hacks to set mouse position in browser
+    if (mousehack_interval && (i % mousehack_interval == 0)) {
+      SDL_GetMouseState (&mousex, &mousey);
+      // clamp mouse pos to screen bounds
+      mousex = mousex > screenw ? screenw : (mousex < 0 ? 0 : mousex);
+      mousey = mousey > screenh ? screenh : (mousey < 0 ? 0 : mousey);
+      // internal raw mouse coords
+      e68_set_mem16 (macplus_sim->cpu, 0x0828, (unsigned) mousey);
+      e68_set_mem16 (macplus_sim->cpu, 0x082a, (unsigned) mousex);
+      // raw mouse coords
+      e68_set_mem16 (macplus_sim->cpu, 0x082c, (unsigned) mousey);
+      e68_set_mem16 (macplus_sim->cpu, 0x082e, (unsigned) mousex);
+      // smoothed mouse coords
+      e68_set_mem16 (macplus_sim->cpu, 0x0830, (unsigned) mousey);
+      e68_set_mem16 (macplus_sim->cpu, 0x0832, (unsigned) mousex);
+    }
+
+    mac_clock (par_sim, 0);
+
+    if (macplus_sim->brk) {
+      pce_stop();
+      #ifdef EMSCRIPTEN
+      emscripten_cancel_main_loop();
+      #endif
+      return;
+    }
+
+    if (macplus_sim->pause) {
+      trm_check (macplus_sim->trm);
+      return;
+    }
+  }
 }
 /*
  * end emscripten specific main loop
