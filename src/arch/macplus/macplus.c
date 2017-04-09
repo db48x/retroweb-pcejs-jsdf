@@ -1552,7 +1552,7 @@ void mac_realtime_sync (macplus_t *sim, unsigned long n)
 		}
 
 		if (sim->sync_sleep >= MAC_CPU_SLEEP) {
-			pce_usleep (sim->sync_sleep);
+			//pce_usleep (sim->sync_sleep);
 		}
 
 		if (sim->sync_sleep < -1000000) {
@@ -1562,7 +1562,7 @@ void mac_realtime_sync (macplus_t *sim, unsigned long n)
 	}
 }
 
-void mac_clock (macplus_t *sim, unsigned n)
+int mac_clock (macplus_t *sim, unsigned n)
 {
 	unsigned long viaclk, clkdiv, cpuclk;
 
@@ -1596,7 +1596,7 @@ void mac_clock (macplus_t *sim, unsigned n)
 	}
 
 	if (sim->clk_div[1] < 10) {
-		return;
+		return n;
 	}
 
 	viaclk = sim->clk_div[1] / 10;
@@ -1613,7 +1613,7 @@ void mac_clock (macplus_t *sim, unsigned n)
 	sim->clk_div[2] += 10 * viaclk;
 
 	if (sim->clk_div[2] < 256) {
-		return;
+		return n;
 	}
 
 	mac_video_clock (sim->video, sim->clk_div[2]);
@@ -1629,7 +1629,7 @@ void mac_clock (macplus_t *sim, unsigned n)
 	sim->clk_div[2] = 0;
 
 	if (sim->clk_div[3] < 8192) {
-		return;
+		return n;
 	}
 
 	if (sim->trm != NULL) {
@@ -1643,4 +1643,6 @@ void mac_clock (macplus_t *sim, unsigned n)
 	mac_realtime_sync (sim, sim->clk_div[3]);
 
 	sim->clk_div[3] = 0;
+
+	return n;
 }

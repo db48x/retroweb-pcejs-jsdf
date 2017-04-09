@@ -423,7 +423,7 @@ void mac_run_emscripten (macplus_t *sim)
 
 	#ifdef EMSCRIPTEN
 	emscripten_set_main_loop(mac_run_emscripten_step, 0, 1);
-	emscripten_set_main_loop_timing(EM_TIMING_RAF, 2);
+	emscripten_set_main_loop_timing(EM_TIMING_RAF, 1);
 	#else
 	while (!sim->brk) {
 		mac_run_emscripten_step();
@@ -445,8 +445,10 @@ void mac_run_emscripten_step ()
     return;
   }
 
-  double dT = 1.0l / 30.0l;
-  int cyclesPerSecond = 7.8336l * 100000; // confusing; why 100k and not 1M?
+  // for each 'emscripten step' we'll run a bunch of actual cycles
+  // to minimise overhead from emscripten's main loop management
+  double dT = 1.0l / 60.0l;
+  int cyclesPerSecond = 7.8336l * 1000000;
   int cycles = (int)(dT * cyclesPerSecond);
 
   //double beginT = timeT;
@@ -456,26 +458,17 @@ void mac_run_emscripten_step ()
 
   int mousex;
   int mousey;
-  int mousehack_interval = 100;
+  int mousehack = 0;
 
   const SDL_VideoInfo* videoinfo = SDL_GetVideoInfo();
   int screenw = videoinfo->current_w;
   int screenh = videoinfo->current_h;
 
+  // gross hacks to set mouse position in browser
   /* If pointer lock is enabled, then the mouse hack will not work */
   EmscriptenPointerlockChangeEvent pointerLockEvent;
-  if(emscripten_get_pointerlock_status(&pointerLockEvent) == EMSCRIPTEN_RESULT_SUCCESS) {
-    if(pointerLockEvent.isActive) {
-      mousehack_interval = 0;
-    }
-  }
-
-  // for each 'emscripten step' we'll run a bunch of actual cycles
-  // to minimise overhead from emscripten's main loop management
-  int i;
-  for (i = 0; i < cycles; ++i) {
-    // gross hacks to set mouse position in browser
-    if (mousehack_interval && (i % mousehack_interval == 0)) {
+  if (emscripten_get_pointerlock_status(&pointerLockEvent) == EMSCRIPTEN_RESULT_SUCCESS) {
+    if (!pointerLockEvent.isActive) {
       SDL_GetMouseState (&mousex, &mousey);
       // clamp mouse pos to screen bounds
       mousex = mousex > screenw ? screenw : (mousex < 0 ? 0 : mousex);
@@ -490,8 +483,10 @@ void mac_run_emscripten_step ()
       e68_set_mem16 (macplus_sim->cpu, 0x0830, (unsigned) mousey);
       e68_set_mem16 (macplus_sim->cpu, 0x0832, (unsigned) mousex);
     }
+  }
 
-    mac_clock (par_sim, 0);
+  while (cycles > 0) {
+    cycles -= mac_clock (par_sim, 0);
 
     if (macplus_sim->brk) {
       pce_stop();

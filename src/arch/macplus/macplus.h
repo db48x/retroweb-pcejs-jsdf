@@ -178,7 +178,7 @@ void mac_reset (macplus_t *sim);
  * @short Clock the simulator
  * @param n The number of clock cycles.
  *****************************************************************************/
-void mac_clock (macplus_t *sim, unsigned n);
+int mac_clock (macplus_t *sim, unsigned n);
 
 
 #endif
