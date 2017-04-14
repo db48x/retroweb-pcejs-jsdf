@@ -33,11 +33,14 @@ typedef struct sound_sdl_buf_t {
 	unsigned               cnt;
 	unsigned               max;
 	unsigned char          *data;
+	float                  d_idx;
 } sound_sdl_buf_t;
 
 typedef struct sound_sdl_t {
 	sound_drv_t sdrv;
 
+	// our private lowpass filter
+	sound_iir2_t  sdl_lowpass_iir2[SND_CHN_MAX];
 	char        is_open;
 	char        is_paused;
 
@@ -45,6 +48,10 @@ typedef struct sound_sdl_t {
 	int         big_endian;
 
 	unsigned        buf_cnt;
+
+	// ratio of asked sample rate to obtained sample rate for resampling.
+	float       s_ratio;
+	int16_t     last_sample;
 
 	sound_sdl_buf_t *head;
 	sound_sdl_buf_t *tail;
