@@ -236,7 +236,7 @@ void sdl_snd_fix_lowpass (sound_sdl_t *drv, int chn, int freq, int srate)
 	}
 }
 
-void snd_sdl_callback_resample (sound_sdl_t *drv, uint16_t *dest, int cnt)
+void snd_sdl_callback_resample (sound_sdl_t *drv, int16_t *dest, int cnt)
 {
 	int             n;
 	sound_sdl_buf_t *src;
@@ -245,7 +245,7 @@ void snd_sdl_callback_resample (sound_sdl_t *drv, uint16_t *dest, int cnt)
 
 	int feed = 0;
 	int old_cnt = cnt;
-	uint16_t * old_dest = dest;
+	int16_t * old_dest = dest;
 
 	for ( ; cnt > 0 ; cnt--) {
 		src = drv->head;
@@ -292,7 +292,7 @@ void snd_sdl_callback_resample (sound_sdl_t *drv, uint16_t *dest, int cnt)
 #if CUT_OFF
 	// yes, inplace filter work
 	snd_iir2_filter (
-		&drv->sdl_lowpass_iir2[0], old_dest, old_dest,
+		&drv->sdl_lowpass_iir2[0], (uint16_t*)old_dest, (uint16_t*)old_dest,
 		old_cnt, drv->sdrv.channels, drv->sign
 		);
 #endif
@@ -312,7 +312,7 @@ void snd_sdl_callback (void *user, Uint8 *buf, int cnt)
 		snd_sdl_callback_no_resample(user, buf, cnt);
 	}
 	else {
-		snd_sdl_callback_resample(user, (uint16_t*)buf, cnt);
+		snd_sdl_callback_resample(user, (int16_t*)buf, cnt);
 	}
 }
 
