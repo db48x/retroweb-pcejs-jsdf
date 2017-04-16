@@ -270,7 +270,7 @@ void snd_sdl_callback_resample (sound_sdl_t *drv, int16_t *dest, int cnt)
 				emscripten_log(EM_LOG_CONSOLE, "snd-sdl: buffer underrun");
 				memset (dest, 0, cnt*2);
 				drv->last_sample = 0;
-				return;
+				break;
 			}
 			src->d_idx = old_src->d_idx - (int)old_src->d_idx;
 		}
