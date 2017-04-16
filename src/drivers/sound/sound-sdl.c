@@ -236,7 +236,7 @@ void sdl_snd_fix_lowpass (sound_sdl_t *drv, int chn, int freq, int srate)
 	}
 }
 
-void snd_sdl_callback_resample (sound_sdl_t *drv, int16_t *dest, int cnt)
+void snd_sdl_callback_resample (sound_sdl_t *drv, uint16_t *dest, int cnt)
 {
 	int             n;
 	sound_sdl_buf_t *src;
@@ -245,7 +245,7 @@ void snd_sdl_callback_resample (sound_sdl_t *drv, int16_t *dest, int cnt)
 
 	int feed = 0;
 	int old_cnt = cnt;
-	int16_t * old_dest = dest;
+	uint16_t * old_dest = dest;
 
 	for ( ; cnt > 0 ; cnt--) {
 		src = drv->head;
@@ -267,7 +267,7 @@ void snd_sdl_callback_resample (sound_sdl_t *drv, int16_t *dest, int cnt)
 #if DEBUG_SND_SDL >= 1
 				fprintf (stderr, "snd-sdl: buffer underrun\n");
 #endif
-				emscripten_log(EM_LOG_CONSOLE, "snd-sdl: buffer underrun");
+				emscripten_log(EM_LOG_CONSOLE, "snd-sdl: buffer underrun: %d samples missing", cnt);
 				memset (dest, 0, cnt*2);
 				drv->last_sample = 0;
 				break;
@@ -275,10 +275,14 @@ void snd_sdl_callback_resample (sound_sdl_t *drv, int16_t *dest, int cnt)
 			src->d_idx = old_src->d_idx - (int)old_src->d_idx;
 		}
 
-		int16_t sample0 = drv->last_sample;
-		int16_t sample1 = *((int16_t*)src->data + (int)src->d_idx);
+		uint16_t sample0 = drv->last_sample;
+		uint16_t sample1 = *((uint16_t*)src->data + (int)src->d_idx);
 		float frac = src->d_idx - (int)src->d_idx;
-		int16_t sample = (1 - frac) * sample0 + frac * sample1;
+		uint16_t sample;
+		if (drv->sign)
+			sample = (1 - frac) * (int16_t)sample0 + frac * (int16_t)sample1;
+		else
+			sample = (1 - frac) * sample0 + frac * sample1;
 
 		// Instead of working on input[iPos], input[iPos+1] we work
 		// on input[ipos-1], input[ipos], it works this way by updating
@@ -293,7 +297,7 @@ void snd_sdl_callback_resample (sound_sdl_t *drv, int16_t *dest, int cnt)
 #if CUT_OFF
 	// yes, inplace filter work
 	snd_iir2_filter (
-		&drv->sdl_lowpass_iir2[0], (uint16_t*)old_dest, (uint16_t*)old_dest,
+		&drv->sdl_lowpass_iir2[0], old_dest, old_dest,
 		old_cnt, drv->sdrv.channels, drv->sign
 		);
 #endif
@@ -313,7 +317,7 @@ void snd_sdl_callback (void *user, Uint8 *buf, int cnt)
 		snd_sdl_callback_no_resample(user, buf, cnt);
 	}
 	else {
-		snd_sdl_callback_resample(user, (int16_t*)buf, cnt);
+		snd_sdl_callback_resample(user, (uint16_t*)buf, cnt);
 	}
 }
 
