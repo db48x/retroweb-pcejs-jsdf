@@ -51,7 +51,7 @@ typedef struct sound_sdl_t {
 
 	// ratio of asked sample rate to obtained sample rate for resampling.
 	float       s_ratio;
-	int16_t     last_sample;
+	uint16_t    last_sample;
 
 	sound_sdl_buf_t *head;
 	sound_sdl_buf_t *tail;
